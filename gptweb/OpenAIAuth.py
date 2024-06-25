@@ -1,15 +1,13 @@
 ### Credits to github.com/rawandahmad698/PyChatGPT
+import os
 import json
 from logging import Logger
-from typing import Literal
+from typing import Literal, Union
 from playwright.async_api import Page, Response, BrowserContext
-
-from .config import url_check, SetCookieParam
 
 import asyncio
 import urllib.parse
-import os
-import re
+from .config import url_check, SetCookieParam
 
 
 class Error(Exception):
@@ -32,17 +30,15 @@ class AsyncAuth0:
     OpenAI Authentication Reverse Engineered
     """
 
-    def __init__(
-            self,
-            email: str,
-            password: str,
-            page: "Page",
-            logger: Logger,
-            browser_contexts,
-            mode: Literal["openai", "google", "microsoft"] = "openai",
-            help_email: str = "",
-            loop=None
-    ):
+    def __init__(self,
+                 email: str,
+                 password: str,
+                 page: "Page",
+                 logger: Logger,
+                 browser_contexts,
+                 mode: Literal["openai", "google", "microsoft"] = "openai",
+                 help_email: str = "",
+                 loop=None):
         self.email_address = email
         self.password = password
         self.page = page
@@ -50,10 +46,9 @@ class AsyncAuth0:
         self.browser_contexts: BrowserContext = browser_contexts
         self.mode = mode
         self.help_email = help_email
-
         self.access_token = None
 
-    async def auth_error(self, response: Response | None):
+    async def auth_error(self, response: Union[Response, None]):
         return Error(
             location=self.__str__(),
             status_code=response.status if response else 000,
