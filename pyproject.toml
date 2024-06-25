@@ -1,19 +1,21 @@
-[project]
-name = "ChatGPTWeb"
-version = "0.2.34"
-description = "ChatGPT PlayWright API"
-authors = [
-    {name = "nek0us", email = "nekouss@mail.com"},
-]
-license = {text = "GPL3"}
-dependencies = ["playwright >= 1.43.0","aioconsole","aiohttp","httpx"]
-requires-python = ">=3.10"
-readme = "README.md"
-
-[project.urls]
-Homepage = "https://github.com/nek0us/ChatGPT"
-Repository = "https://github.com/nek0us/ChatGPT"
-
 [build-system]
-requires = ["pdm-pep517>=0.12.0"]
-build-backend = "pdm.pep517.api"
+requires = ["setuptools>=62", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gptweb"
+dynamic = ["version"]
+requires-python = ">=3.10"
+description = "ChatGPT PlayWright API"
+dependencies = ["playwright >= 1.43.0", "aioconsole", "aiohttp", "httpx"]
+
+
+[tool.setuptools.dynamic]
+version = { attr = "gptweb.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["gptweb*"]
+exclude = ["example*"]
+
+[tool.setuptools.package-data]
+thaml = ['_cookie_file/*']
