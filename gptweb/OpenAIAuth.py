@@ -1,16 +1,16 @@
-# Credits to github.com/rawandahmad698/PyChatGPT
+### Credits to github.com/rawandahmad698/PyChatGPT
 import json
 from logging import Logger
 from typing import Literal
-from playwright.async_api import Page
-from playwright.async_api import Response,BrowserContext
+from playwright.async_api import Page, Response, BrowserContext
 
-from .config import url_check,SetCookieParam
+from .config import url_check, SetCookieParam
 
 import asyncio
 import urllib.parse
 import os
 import re
+
 
 class Error(Exception):
     """
@@ -77,9 +77,8 @@ class AsyncAuth0:
                 f"{key}={value}"
             )
         return f"{sp}".join(li)
-    
 
-    async def normal_begin(self,logger,retry: int = 1):
+    async def normal_begin(self, logger, retry: int = 1):
         if retry < 0:
             return None
         retry -= 1
@@ -89,7 +88,7 @@ class AsyncAuth0:
         cookies = [cookie for cookie in cookies if cookie['name'] != '__Secure-next-auth.session-token']
         await self.browser_contexts.clear_cookies()
         await self.browser_contexts.add_cookies(cookies)
-        
+
         await self.login_page.goto(
             url="https://chatgpt.com/auth/login",
             wait_until="load"
@@ -97,12 +96,12 @@ class AsyncAuth0:
         cf_locator = self.login_page.locator('//*[@id="cf-chl-widget-lpiae"]')
         if await cf_locator.count() > 0:
             logger.warning(f"cf checkbox in {self.email_address}")
-        
+
         await asyncio.sleep(5)
         check_login = self.login_page.locator('//html/body/div[1]/div[1]/div[2]/main/div[1]/div[1]/div/div[1]/div/div[3]/button/div/div/img')
         if await check_login.count() == 0:
             alert_login_box = self.login_page.locator('//html/body/div[3]/div/div/div/div/div/button[1]/div')
-            
+
             nologin_home_locator = self.login_page.locator('//html/body/div[1]/div[1]/div[1]/div/div/div/div/nav/div[2]/div[2]/button[2]')
             auth_login = self.login_page.locator('//html/body/div[1]/div[1]/div[2]/div[1]/div/div/button[1]')
             if await alert_login_box.count() > 0:
@@ -119,7 +118,7 @@ class AsyncAuth0:
             use_url = "chat.openai.com"
             if "chatgpt.com" in current_url:
                 use_url = "chatgpt.com"
-            
+
             if "auth0" in current_url:
                 await self.login_page.wait_for_url("https://auth0.openai.com/**")
             else:
@@ -129,15 +128,15 @@ class AsyncAuth0:
             if self.mode == "google":
                 new_login = True
                 for cookie in cookies:
-                    if cookie['name'] == '__Secure-1PSIDTS': # type: ignore
+                    if cookie['name'] == '__Secure-1PSIDTS':  # type: ignore
                         new_login = False
                         break
-                
+
                 if new_login:
-                    with open(f"{self.email_address}_google_cookie.txt","w") as code_file:
+                    with open(f"{self.email_address}_google_cookie.txt", "w") as code_file:
                         code_file.write("")
                         logger.info(f"please input google cookie to {self.email_address}_google_cookie.txt")
-                    with open(f"{self.email_address}_google_cookie.txt","r") as code_file:
+                    with open(f"{self.email_address}_google_cookie.txt", "r") as code_file:
                         while 1:
                             await asyncio.sleep(1)
                             code = code_file.read()
@@ -157,14 +156,13 @@ class AsyncAuth0:
                                 await self.browser_contexts.add_cookies(tmp1)
                                 break
                     os.unlink(f"{self.email_address}_google_cookie.txt")
-                
-                
+
                 try:
                     if "auth0" in self.login_page.url:
                         await self.login_page.click('[data-provider="google"] button')
                     else:
                         await self.login_page.click('//html/body/div/div/main/section/div[2]/div[3]/button[1]')
-                        
+
                 except Exception as e:
                     self.logger.warning(f"google point error:{e}")
                     raise e
@@ -174,7 +172,7 @@ class AsyncAuth0:
                     if "auth0" in current_url:
                         await self.login_page.click('//html/body/div/main/section/div/div/div/div[4]/form[1]/button')
                     else:
-                        
+
                         await self.login_page.click('//html/body/div/div/main/section/div[2]/div[3]/button[2]')
                 except Exception as e:
                     self.logger.warning(f"microsoft point error:{e}")
@@ -197,7 +195,7 @@ class AsyncAuth0:
                     await asyncio.sleep(1)
                     await self.login_page.click('//*[@id="idSIButton9"]')
                     await self.login_page.wait_for_load_state()
-                    # verify code 
+                    # verify code
                     await self.login_page.wait_for_timeout(1000)
                     try:
                         await self.login_page.wait_for_url("https://login.live.com/**")
@@ -211,9 +209,9 @@ class AsyncAuth0:
                                 await self.login_page.wait_for_load_state()
                                 await self.login_page.wait_for_timeout(1000)
                                 logger.info(f"please enter {self.email_address} -- help email {self.help_email}'s verify code to {self.email_address}_code.txt")
-                                with open(f"{self.email_address}_code.txt","w") as code_file:
+                                with open(f"{self.email_address}_code.txt", "w") as code_file:
                                     code_file.write("")
-                                with open(f"{self.email_address}_code.txt","r") as code_file:
+                                with open(f"{self.email_address}_code.txt", "r") as code_file:
                                     while 1:
                                         await asyncio.sleep(1)
                                         code = code_file.read()
@@ -237,7 +235,6 @@ class AsyncAuth0:
                     await self.login_page.keyboard.press(EnterKey)
                     await self.login_page.wait_for_load_state()
 
-
                 elif self.mode == "google":
                     # enter google email
                     await self.login_page.fill('//*[@id="identifierId"]', self.email_address)
@@ -259,13 +256,12 @@ class AsyncAuth0:
                         await self.login_page.fill('[name="username"]', self.email_address)
                         await asyncio.sleep(1)
                         await self.login_page.click('button[type="submit"]._button-login-id')
-                    
+
                     else:
                         await self.login_page.fill('//*[@id="email-input"]', self.email_address)
                         await asyncio.sleep(1)
                         await self.login_page.click('//html/body/div/div/main/section/div[2]/button')
-                    
-                    
+
                     await self.login_page.wait_for_load_state(state="domcontentloaded")
                     await self.login_page.locator('[name="password"]').first.fill(self.password)
                     await asyncio.sleep(1)
@@ -273,22 +269,21 @@ class AsyncAuth0:
                     await self.login_page.wait_for_load_state()
                     await self.login_page.wait_for_load_state('networkidle')
 
-                
                 # go chatgpt
                 try:
                     await asyncio.sleep(5)
                     await self.login_page.wait_for_load_state('networkidle')
                     try:
-                        await self.login_page.wait_for_url(f"https://{use_url}/",timeout=30000)
+                        await self.login_page.wait_for_url(f"https://{use_url}/", timeout=30000)
                     except:
                         await self.login_page.goto(f"https://{use_url}/")
                     await self.login_page.wait_for_load_state('networkidle')
                     nologin_home_locator = self.login_page.locator('//html/body/div[1]/div[1]/div[1]/div/div/div/div/nav/div[2]/div[2]/button[2]')
                     auth_login = self.login_page.locator('//html/body/div[1]/div[1]/div[2]/div[1]/div/div/button[1]')
                     if await nologin_home_locator.count() > 0:
-                        access_token = await self.normal_begin(logger,retry)
+                        access_token = await self.normal_begin(logger, retry)
                     elif await auth_login.count() > 0:
-                        access_token = await self.normal_begin(logger,retry)
+                        access_token = await self.normal_begin(logger, retry)
                     # else:
                     #     await self.login_page.click('[data-testid="login-button"]')
                     if access_token:
@@ -298,11 +293,11 @@ class AsyncAuth0:
                     # Try Again
                     await self.login_page.keyboard.press(EnterKey)
                     await self.login_page.wait_for_url(f"https://{use_url}/")
-                    
+
         async with self.login_page.expect_response(url_check, timeout=20000) as a:
             res = await self.login_page.goto(url_check, timeout=20000)
         res = await a.value
-        if (res.status == 200 or res.status == 307)and res.url == url_check:
+        if (res.status == 200 or res.status == 307) and res.url == url_check:
             await asyncio.sleep(3)
             await self.login_page.wait_for_load_state('load')
             json_data = await self.login_page.evaluate(
@@ -310,10 +305,8 @@ class AsyncAuth0:
             access_token = json_data['accessToken']
             return access_token
         return None
-    
 
-
-    async def get_session_token(self,logger):
+    async def get_session_token(self, logger):
         self.login_page: Page = await self.browser_contexts.new_page()
         # await stealth_async(self.login_page)
         access_token = None
@@ -325,10 +318,10 @@ class AsyncAuth0:
         finally:
             cookies = await self.browser_contexts.cookies()
             await self.login_page.close()
-            
+
         try:
-            return next(filter(lambda x: x.get("name") == "__Secure-next-auth.session-token", cookies), None),access_token
+            return next(filter(lambda x: x.get("name") == "__Secure-next-auth.session-token", cookies), None), access_token
         except Exception as e:
             self.logger.warning(f"get cookie error:{e}")
-        
-        return None,None
+
+        return None, None
