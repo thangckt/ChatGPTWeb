@@ -9,41 +9,38 @@ import threading
 from pathlib import Path
 from aiohttp import ClientSession
 from playwright.async_api import async_playwright, Route, Request, Page
-from typing import Optional,Literal,List
+from typing import Optional, Literal, List
 
-from .config import (
-    Payload,
-    Personality,
-    MsgData,
-    ProxySettings,
-    logging,
-    formator,
-    Session,
-    uuid,
-    url_check,
-    url_session,
-    Status,
-)
+from .config import (Payload,
+                     Personality,
+                     MsgData,
+                     ProxySettings,
+                     logging,
+                     formator,
+                     Session,
+                     uuid,
+                     url_check,
+                     url_session,
+                     Status)
 from .load import load_js
-from .api import (
-    async_send_msg,
-    recive_handle,
-    create_session,
-    retry_keep_alive,
-    Auth,
-    get_session_token,
-    get_paid,
-    get_paid_by_httpx,
-    get_wss,
-    try_wss,
-)
+from .api import (async_send_msg,
+                  recive_handle,
+                  create_session,
+                  retry_keep_alive,
+                  Auth,
+                  get_session_token,
+                  get_paid,
+                  get_paid_by_httpx,
+                  get_wss,
+                  try_wss)
+
 
 class chatgpt:
     def __init__(self,
                  sessions: list[dict] = [],
                  proxy: Optional[str] = None,
                  chat_file: Path = Path("data", "chat_history", "conversation"),
-                 personality: Personality = None, # type: ignore
+                 personality: Personality = None,  # type: ignore
                  log_status: bool = True,
                  plugin: bool = False,
                  headless: bool = True,
@@ -52,7 +49,7 @@ class chatgpt:
                  httpx_status: bool = False,
                  logger_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO",
                  stdout_flush: bool = False,
-                
+
                  ) -> None:
         """
         ### sessions : list[dict]
@@ -84,10 +81,10 @@ class chatgpt:
         """
         self.Sessions: List[Session] = []
         self.data = MsgData()
-        self.proxy: typing.Optional[ProxySettings] = {"server":proxy} if proxy else None
+        self.proxy: typing.Optional[ProxySettings] = {"server": proxy} if proxy else None
         self.httpx_proxy = proxy
         self.chat_file = chat_file
-        self.personality =  Personality([{"name": "cat", "value": "you are a cat now."}], chat_file) if personality is None else personality
+        self.personality = Personality([{"name": "cat", "value": "you are a cat now."}], chat_file) if personality is None else personality
         self.log_status = log_status
         self.plugin = plugin
         self.headless = headless
@@ -104,7 +101,7 @@ class chatgpt:
         self.logger.addHandler(sh)
         if not self.log_status:
             self.logger.removeHandler(sh)
-        
+
         if not sessions:
             raise ValueError("session_token is empty!")
 
@@ -114,7 +111,7 @@ class chatgpt:
             if s.is_valid:
                 if not s.type:
                     s.type = "session"
-                s = get_session_token(s,self.chat_file,self.logger)
+                s = get_session_token(s, self.chat_file, self.logger)
                 if not s.device_id:
                     s.device_id = str(uuid.uuid4())
                 self.Sessions.append(s)
@@ -128,32 +125,32 @@ class chatgpt:
         }
 
         '''
-        start:bool All started | 全部启动完毕 
-        
+        start:bool All started | 全部启动完毕
+
         sessions：list sessions |  sessions 列表
-        
+
         browser_contexts：list Browser environment list | 浏览器环境列表
         '''
         if not self.plugin:
             self.browser_event_loop = asyncio.get_event_loop()
-            asyncio.run_coroutine_threadsafe(self.__start__(self.browser_event_loop),self.browser_event_loop)
+            asyncio.run_coroutine_threadsafe(self.__start__(self.browser_event_loop), self.browser_event_loop)
         elif self.log_status:
-            from nonebot.log import logger # type: ignore
+            from nonebot.log import logger  # type: ignore
             self.logger = logger
 
         '''
         data : base data type | 内部数据类型
         '''
 
-    # 检测Firefox是否已经安装 
+    # 检测Firefox是否已经安装
     async def is_firefox_installed(self):
         '''chekc firefox install | 检测Firefox是否已经安装 '''
         try:
             playwright_manager = async_playwright()
             playwright = await playwright_manager.start()
             browser = await playwright.firefox.launch(
-            headless=self.headless,
-            slow_mo=50, proxy=self.proxy)
+                headless=self.headless,
+                slow_mo=50, proxy=self.proxy)
             await browser.close()
             return True
         except Exception as e:
@@ -163,7 +160,7 @@ class chatgpt:
     # 安装Firefox
     def install_firefox(self):
         os.system('playwright install firefox')
-    
+
     def set_chat_file(self):
         """
         mkdir chat file path
@@ -187,16 +184,15 @@ class chatgpt:
     async def __keep_alive__(self, session: Session):
         url = url_check
         await asyncio.sleep(random.randint(1, 60 if len(self.Sessions) < 10 else 6 * len(self.Sessions)))
-        session = await retry_keep_alive(session,url,self.chat_file,self.logger)
+        session = await retry_keep_alive(session, url, self.chat_file, self.logger)
         # check session_token need update
         if session.status == Status.Update.value:
             # yes,we should update it
             self.logger.debug(f"{session.email} begin relogin")
-            await Auth(session,self.logger)
+            await Auth(session, self.logger)
             self.logger.debug(f"{session.email} relogin over")
         elif session.status == Status.Login.value:
             self.logger.debug(f"{session.email} loging in")
-        
 
     async def __alive__(self):
         """keep cf cookie alive
@@ -219,9 +215,9 @@ class chatgpt:
 
             await asyncio.sleep(60 if len(self.Sessions) < 10 else 6 * len(self.Sessions))
 
-        # for task in tasks: 
+        # for task in tasks:
         #     task.cancel()
-        # await asyncio.gather(*tasks,return_exceptions=True)    
+        # await asyncio.gather(*tasks,return_exceptions=True)
 
         await self.browser.close()
         await self.playwright_manager.__aexit__()
@@ -229,19 +225,17 @@ class chatgpt:
         loop.stop()
         # loop.close()
         current_thread = threading.current_thread()
-        current_thread._stop() # type: ignore
-
-    
+        current_thread._stop()  # type: ignore
 
     async def __login(self, session: Session):
         if self.begin_sleep_time:
-            await asyncio.sleep(random.randint(1, len(self.Sessions)*6))
+            await asyncio.sleep(random.randint(1, len(self.Sessions) * 6))
         if not session.browser_contexts:
             session.browser_contexts = await self.browser.new_context(service_workers="block")
         self.logger.debug(f"{session.email} begin login when it start")
         if session.session_token:
             token = session.session_token
-            await session.browser_contexts.add_cookies([token]) # type: ignore
+            await session.browser_contexts.add_cookies([token])  # type: ignore
             session.page = await session.browser_contexts.new_page()
             # await stealth_async(session.page)
             session.status = Status.Login.value
@@ -249,13 +243,12 @@ class chatgpt:
         elif session.email and session.password:
             session.page = await session.browser_contexts.new_page()
             # await stealth_async(session.page)
-            await Auth(session,self.logger)
+            await Auth(session, self.logger)
         else:
             # TODO:
             pass
         if session.login_cookies:
             await session.browser_contexts.add_cookies(session.login_cookies)
-        
 
     async def __start__(self, loop):
         """
@@ -267,13 +260,13 @@ class chatgpt:
             self.logger.info("Firefox browser has been successfully installed.")
         else:
             self.logger.debug("Firefox browser is already installed.")
-        self.js = await load_js(self.httpx_proxy)    
+        self.js = await load_js(self.httpx_proxy)
         self.playwright_manager = async_playwright()
         self.playwright = await self.playwright_manager.start()
         self.browser = await self.playwright.firefox.launch(
             headless=self.headless,
             slow_mo=50, proxy=self.proxy)
-        
+
         # arkose context
         load_tasks = []
         auth_tasks = []
@@ -283,7 +276,7 @@ class chatgpt:
         # await stealth_async(s.page)
         # self.Sessions.append(s)
         # load_tasks.append(self.load_page(s))
-        self.manage["start"] = True # wait remove
+        self.manage["start"] = True  # wait remove
         # gpt cookie contexts
         for session in self.Sessions:
             auth_tasks.append(self.__login(session))
@@ -295,7 +288,7 @@ class chatgpt:
 
         self.manage["browser_contexts"] = self.browser.contexts
 
-        self.personality.read_data(self.chat_file) # type: ignore
+        self.personality.read_data(self.chat_file)  # type: ignore
         self.logger.debug("start!")
         self.thread = threading.Thread(target=lambda: self.tmp(loop), daemon=True)
         self.thread.start()
@@ -303,13 +296,13 @@ class chatgpt:
     async def load_page(self, session: Session):
         '''start page | 载入初始页面'''
         if self.begin_sleep_time and session.type != "script":
-            await asyncio.sleep(random.randint(1, len(self.Sessions)*6))
+            await asyncio.sleep(random.randint(1, len(self.Sessions) * 6))
         access_token = None
         page = session.page
         if page:
             session.user_agent = await page.evaluate('() => navigator.userAgent')
         # if session.type != "script" and page:
-            session = await retry_keep_alive(session,url_check,self.chat_file,self.logger)
+            session = await retry_keep_alive(session, url_check, self.chat_file, self.logger)
             # try:
             #     await page.goto(url_check,timeout=30000)
             #     await asyncio.sleep(3)
@@ -326,19 +319,19 @@ class chatgpt:
             #     access_token = ""
             #     self.logger.warning(f"{session.email}'s have cf checkbox? error:{e}")
             # session.access_token = access_token
-            
+
         # if session.type == "script" and page:
-            await page.goto("https://chatgpt.com/",timeout=30000)
+            await page.goto("https://chatgpt.com/", timeout=30000)
             await page.wait_for_load_state()
             current_url = page.url
             await page.wait_for_url(current_url)
-            current_url = page.url 
-            
+            current_url = page.url
+
             while session.status == Status.Update.value:
                 self.logger.debug(f"context {session.email} begin relogin")
-                await Auth(session,self.logger)
+                await Auth(session, self.logger)
                 self.logger.debug(f"context {session.email} relogin over")
-            await page.goto("https://chatgpt.com/",timeout=30000)
+            await page.goto("https://chatgpt.com/", timeout=30000)
             await asyncio.sleep(4)
             await page.wait_for_load_state("load")
             res = await page.evaluate_handle(self.js[0])
@@ -361,7 +354,7 @@ class chatgpt:
                     self.js_used = 0
             else:
                 self.js_used = 0
-            
+
             # await page.evaluate(Payload.get_ajs())
             if session.access_token:
                 if session.status != Status.Update.value:
@@ -377,10 +370,10 @@ class chatgpt:
             if self.httpx_status:
                 self.logger.debug("load page over,http_status true,close page")
                 await page.close()
-                
+
             # self.logger.debug(f"context {session.email} js start!")
             return
-        
+
     def tmp(self, loop):
         # task = asyncio.create_task(self.__alive__())
         # await task
@@ -389,42 +382,41 @@ class chatgpt:
     async def get_bda(self, data: str, key: str):
         session: Session = next(filter(lambda s: s.type == "script", self.Sessions))
         # page: Page = self.manage["browser_contexts"][-1].pages[0]
-        page: Page = session.page # type: ignore
+        page: Page = session.page  # type: ignore
         js = f"ALFCCJS.encrypt('{data}','{key}')"
         res = await page.evaluate_handle(js)
         result: str = await res.json_value()
         return base64.b64encode(result.encode('utf8')).decode('utf8')
 
-
-
-    async def send_msg(self, msg_data: MsgData, session: Session, send_status: bool = True,retry: int = 3):
+    async def send_msg(self, msg_data: MsgData, session: Session, send_status: bool = True, retry: int = 3):
         """send message body function
         发送消息处理函数"""
         if retry != 3:
             self.logger.debug(f"resend {retry}")
-        retry -= 1 
+        retry -= 1
         if retry < 0:
             msg_data.error_info += " and error: send msg retry max\n"
             return msg_data
-        
+
         page = session.page
         token = session.access_token
         context_num = session.email
         try:
             if page and not self.httpx_status:
-                send_page: Page = await session.browser_contexts.new_page() # type: ignore
+                send_page: Page = await session.browser_contexts.new_page()  # type: ignore
                 # await stealth_async(send_page)
+
                 async def route_handle(route: Route, request: Request):
                     header = {}
                     header['authorization'] = 'Bearer ' + token
                     header['Content-Type'] = 'application/json'
                     header["User-Agent"] = request.headers["user-agent"]
-                    header['Origin'] = "https://chatgpt.com" if "chatgpt" in page.url else 'https://chat.openai.com' # page.url
+                    header['Origin'] = "https://chatgpt.com" if "chatgpt" in page.url else 'https://chat.openai.com'  # page.url
                     header['Referer'] = f"https://chatgpt.com/c/{msg_data.conversation_id}" if msg_data.conversation_id else "https://chatgpt.com"
                     if not msg_data.conversation_id:
-                        data = Payload.new_payload(msg_data.msg_send,gpt_model=msg_data.gpt_model)
+                        data = Payload.new_payload(msg_data.msg_send, gpt_model=msg_data.gpt_model)
                     else:
-                        data = Payload.old_payload(msg_data.msg_send,msg_data.conversation_id,msg_data.p_msg_id,"",gpt_model=msg_data.gpt_model)
+                        data = Payload.old_payload(msg_data.msg_send, msg_data.conversation_id, msg_data.p_msg_id, "", gpt_model=msg_data.gpt_model)
                     header['Content-Length'] = str(len(json.dumps(data).encode('utf-8')))
                     header['Accept'] = 'text/event-stream'
                     header['Accept-Encoding'] = 'gzip, deflate, zstd'
@@ -444,7 +436,7 @@ class chatgpt:
                             await asyncio.sleep(2)
                             await page.wait_for_load_state("load")
                             await page.wait_for_load_state(state="networkidle")
-                            
+
                     json_result = await page.evaluate("() => window._chatp.rS()")
                     await page.wait_for_load_state("networkidle")
                     proof = await page.evaluate(f'() => window._proof.Z.getEnforcementToken({json.dumps(json_result)})')
@@ -473,39 +465,39 @@ class chatgpt:
                         wss = await page.evaluate('() => window._wss.ut.activeSocketMap.entries().next().value')
                         session.last_wss = wss[1]['connectionUrl']
                         session.wss_session = ClientSession()
-                        session.wss = await session.wss_session.ws_connect(session.last_wss,proxy=self.httpx_proxy,headers=None)
+                        session.wss = await session.wss_session.ws_connect(session.last_wss, proxy=self.httpx_proxy, headers=None)
 
-                    header["Cookie"] = request.headers["cookie"] 
+                    header["Cookie"] = request.headers["cookie"]
                     await route.continue_(method="POST", headers=header, post_data=data)
-                
+
                 await send_page.route("**/backend-api/conversation", route_handle)  # type: ignore
-                
-                async with send_page.expect_response("https://chatgpt.com/backend-api/conversation",timeout=60000) as response_info: # type: ignore
+
+                async with send_page.expect_response("https://chatgpt.com/backend-api/conversation", timeout=60000) as response_info:  # type: ignore
                     try:
                         self.logger.debug(f"send:{msg_data.msg_send}")
-                        await send_page.goto(url_check, timeout=60000) # type: ignore
-                        await send_page.goto("https://chatgpt.com/backend-api/conversation", timeout=60000) # type: ignore
+                        await send_page.goto(url_check, timeout=60000)  # type: ignore
+                        await send_page.goto("https://chatgpt.com/backend-api/conversation", timeout=60000)  # type: ignore
                     except Exception as e:
                         if "Download is starting" not in e.args[0]:
                             # 处理重定向
                             self.logger.warning(f"Download message error:{e}")
                             msg_data.error_info += f"Download message error: {str(e)}\n"
                             raise e
-                        await send_page.wait_for_load_state('networkidle') # type: ignore
+                        await send_page.wait_for_load_state('networkidle')  # type: ignore
                         if response_info.is_done():
                             res = await response_info.value
                             await res.text()
-                            msg_data = await recive_handle(session,res,msg_data,self.logger) # type: ignore
+                            msg_data = await recive_handle(session, res, msg_data, self.logger)  # type: ignore
                     else:
                         res = await response_info.value
                         if res.headers['content-type'] != 'application/json':
-                            msg_data = await recive_handle(session,res,msg_data,self.logger) # type: ignore
-                        else: #if res.headers['content-type'] == 'application/json':
-                            
+                            msg_data = await recive_handle(session, res, msg_data, self.logger)  # type: ignore
+                        else:  # if res.headers['content-type'] == 'application/json':
+
                             try:
                                 json_data = await res.json()
-                                data = await try_wss(wss=json_data,msg_data=msg_data,session=session,ws=session.wss,proxy=self.httpx_proxy,logger=self.logger)
-                                msg_data = await recive_handle(session,data,msg_data,self.logger) # type: ignore
+                                data = await try_wss(wss=json_data, msg_data=msg_data, session=session, ws=session.wss, proxy=self.httpx_proxy, logger=self.logger)
+                                msg_data = await recive_handle(session, data, msg_data, self.logger)  # type: ignore
                             except Exception as e:
                                 self.logger.warning(f"download msg may json_wss,and error: {e} {await res.text()}")
                                 msg_data.error_info += f"download msg may json_wss,and error: {e} {await res.text()}\n"
@@ -516,18 +508,17 @@ class chatgpt:
                                     await session.wss_session.close()
                                     session.wss = None
                                     session.wss_session = None
-                                                 
+
         except Exception as e:
             self.logger.warning(f"send message error:{e}")
             msg_data.error_info += f"send message error: {str(e)} ,retry: {retry}\n"
-            msg_data = await self.send_msg(msg_data,session,retry=retry)
+            msg_data = await self.send_msg(msg_data, session, retry=retry)
         finally:
             await send_page.close()
         if msg_data.status:
             await self.save_chat(msg_data, context_num)
         return msg_data
 
-        
     async def save_chat(self, msg_data: MsgData, context_num: str):
         """save chat file
         保存聊天文件"""
@@ -591,12 +582,12 @@ class chatgpt:
             lambda s: s.type != "script" and s.login_state is True,
             sorted(self.Sessions, key=lambda s: s.last_active)
         )
-        session: Session = next(sessions, None) # type: ignore
+        session: Session = next(sessions, None)  # type: ignore
 
         if not session:
             raise Exception("Not Found Page")
-        msg_data = self.browser_event_loop.run_until_complete(self.send_msg(msg_data, session)) # type: ignore
-        
+        msg_data = self.browser_event_loop.run_until_complete(self.send_msg(msg_data, session))  # type: ignore
+
         return msg_data
 
     async def continue_chat(self, msg_data: MsgData) -> MsgData:
@@ -607,27 +598,27 @@ class chatgpt:
         # script_session: Session = [s for s in self.Sessions if s.type == "script"][0]
         # while not script_session.login_state:
         #     await asyncio.sleep(0.5)
-        session:Session = Session(status=Status.Working.value)
+        session: Session = Session(status=Status.Working.value)
         # We need to get c_id back to the session that created it
         if not msg_data.conversation_id:
             # new chat
             # gpt4 ready
-            gpt4_list = [s for s in self.Sessions if s.gptplus==True]
+            gpt4_list = [s for s in self.Sessions if s.gptplus == True]
             if gpt4_list == [] and msg_data.gpt_model != "text-davinci-002-render-sha":
                 msg_data.error_info = "you use gptplus,but gptplus account not found"
                 self.logger.error(msg_data.error_info)
                 return msg_data
             session_list = gpt4_list if msg_data.gpt_model != "text-davinci-002-render-sha" else self.Sessions
-            
+
             while not session or session.status == Status.Working.value:
                 filtered_sessions = [
-                    s for s in session_list 
-                    if s.type != "script" and s.login_state is True and s.status == Status.Ready.value 
+                    s for s in session_list
+                    if s.type != "script" and s.login_state is True and s.status == Status.Ready.value
                 ]
-                
+
                 if filtered_sessions:
                     session = random.choice(filtered_sessions)
-                    
+
                 await asyncio.sleep(0.5)
             session.status = Status.Working.value
             self.logger.debug(f"session {session.email} begin work")
@@ -675,7 +666,7 @@ class chatgpt:
             self.logger.error(msg_data.error_info)
             return msg_data
         try:
-            msg_data =await asyncio.wait_for(self.send_msg(msg_data, session),timeout=180) 
+            msg_data = await asyncio.wait_for(self.send_msg(msg_data, session), timeout=180)
         except TimeoutError:
             msg_data.error_info += f"send msg {msg_data.msg_send} time out,session:{session.email}\n"
             self.logger.warning(msg_data.error_info)
@@ -741,7 +732,7 @@ class chatgpt:
     async def init_personality(self, msg_data: MsgData):
         """init_personality
         初始化人格"""
-        msg_data.msg_send = self.personality.get_value_by_name(msg_data.msg_send) # type: ignore
+        msg_data.msg_send = self.personality.get_value_by_name(msg_data.msg_send)  # type: ignore
         if msg_data.msg_send:
             msg_data.msg_type = "new_session"
             return await self.continue_chat(msg_data)
@@ -764,19 +755,19 @@ class chatgpt:
         add personality,please input json just like this.
         添加人格 ,请传像这样的json数据
         """
-        self.personality.add_dict_to_list(personality) # type: ignore
-        self.personality.flush_data(self.chat_file) # type: ignore
+        self.personality.add_dict_to_list(personality)  # type: ignore
+        self.personality.flush_data(self.chat_file)  # type: ignore
 
     async def show_personality_list(self):
         """show_personality_list
         展示人格列表"""
-        return self.personality.show_name() # type: ignore
+        return self.personality.show_name()  # type: ignore
 
     async def del_personality(self, name: str):
         """del_personality by name
         删除人格根据名字"""
-        self.personality.del_data_by_name(name) # type: ignore
-        return self.personality.show_name() # type: ignore
+        self.personality.del_data_by_name(name)  # type: ignore
+        return self.personality.show_name()  # type: ignore
 
     async def token_status(self):
         """get work status|查看session token状态和工作状态"""
@@ -784,10 +775,9 @@ class chatgpt:
         # cid_num may not match the number of sessions, because it only records sessions with successful sessions, which will be automatically resolved after a period of time.
         # cid_num 可能和session数量对不上，因为它只记录会话成功的session，这在允许一段时间后会自动解决
         return {
-            "account": [session.email  for session in self.Sessions if session.type != "script"],
+            "account": [session.email for session in self.Sessions if session.type != "script"],
             "token": [True if session.login_state else False for session in self.Sessions if session.type != "script"],
             "work": [session.status for session in self.Sessions if session.type != "script"],
             "cid_num": [len(cid_all[session.email]) for session in self.Sessions if session.email in cid_all],
-            "plus": [session.gptplus  for session in self.Sessions if session.type != "script"],
+            "plus": [session.gptplus for session in self.Sessions if session.type != "script"],
         }
-
